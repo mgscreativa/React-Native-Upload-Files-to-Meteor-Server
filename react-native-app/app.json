@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "React Native Upload Files to Meteor Server",
+    "description": "",
+    "slug": "rn-upload-to-meteor",
+    "privacy": "public",
+    "sdkVersion": "30.0.0",
+    "platforms": ["ios", "android"],
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./app/assets/app-icons/app-icon.png",
+    "splash": {
+      "image": "./app/assets/splash/splash-screen.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#f1471d"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "android": {
+      "icon": "./app/assets/app-icons/app-icon.png"
+    },
+    "ios": {
+      "icon": "./app/assets/app-icons/app-icon.png",
+      "supportsTablet": false
+    },
+    "assetBundlePatterns": ["app/assets/**"]
+  }
+}

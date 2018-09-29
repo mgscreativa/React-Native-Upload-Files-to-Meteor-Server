@@ -1,0 +1,31 @@
+{
+  "name": "React-Native-Upload-Files-to-Meteor-Server",
+  "main": "node_modules/expo/AppEntry.js",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "eject": "expo eject",
+    "test": "node node_modules/jest/bin/jest.js",
+    "test:coverage": "node node_modules/jest/bin/jest.js --coverage && firefox coverage/lcov-report/index.html"
+  },
+  "devDependencies": {
+    "jest-expo": "^30.0.0"
+  },
+  "dependencies": {
+    "expo": "^30.0.0",
+    "react": "16.3.1",
+    "react-native": "https://github.com/expo/react-native/archive/sdk-30.0.0.tar.gz",
+    "react-native-meteor": "^1.4.0",
+    "react-native-mime-types": "^2.2.1"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "collectCoverageFrom": [
+      "app/*.js",
+      "app/**/*.js"
+    ]
+  }
+}
