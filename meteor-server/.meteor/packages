@@ -36,6 +36,8 @@ server-render@0.3.1
 underscore
 
 ostrio:files
+meteorhacks:picker
+
 ostrio:meteor-root
 mdg:validated-method
 tunifight:loggedin-mixin
