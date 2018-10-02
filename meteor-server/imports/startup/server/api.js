@@ -3,8 +3,6 @@ import '../../api/Admin/server/publications';
 
 import '../../api/App/server/publications';
 
-import '../../api/Avatars/server/publications';
-
 import '../../api/Documents/server/indexes';
 import '../../api/Documents/server/publications';
 

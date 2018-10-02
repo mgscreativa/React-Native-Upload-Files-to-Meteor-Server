@@ -6,7 +6,7 @@
     "twitterUsername": "product",
     "facebookUsername": "product",
     "productAddress": "1658 N. Milwaukee Ave., #393, Chicago, IL 60647",
-    "allowedUploadFormats": "png|jpg|jpeg|gif|mp4|mov|qt|pdf"
+    "allowedUploadFormats": "png|jpg|jpeg|gif|mp4|mov|qt|pdf|ods"
   },
   "private": {
     "debug": true,

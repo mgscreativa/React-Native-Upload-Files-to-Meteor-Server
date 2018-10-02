@@ -1,6 +1,6 @@
 import { Meteor } from "meteor/meteor";
 import { Accounts } from "meteor/accounts-base";
-import Avatars from "../../api/Avatars/Avatars";
+import Files from "../../api/Files/server/Files";
 import multer from "multer";
 import fs from "fs";
 
@@ -11,17 +11,17 @@ Picker.middleware(multerInstance.single("file"));
 
 Picker.route("/api/v1/uploads", (params, req, res, next) => {
   console.log("Starting upload pre checks");
+  const { file } = req;
+  const { authToken } = req.body;
 
-  if (req.file === undefined) {
+  if (file === undefined) {
     console.log("No file posted, aborting");
-  } else if (req.file.mimetype.substr(0, 6) !== "image/") {
-    console.log("Sorry, can only upload images");
-  } else if (params.query.authToken && !params.query.authToken.length) {
+  } else if (authToken && !authToken.length) {
     console.log("Please, specify your authToken");
   } else {
     console.log("Checking logged in status");
 
-    const hashedToken = Accounts._hashLoginToken(params.query.authToken);
+    const hashedToken = Accounts._hashLoginToken(authToken);
     const user = Meteor.users.findOne({
       "services.resume.loginTokens.hashedToken": hashedToken
     });
@@ -38,23 +38,22 @@ Picker.route("/api/v1/uploads", (params, req, res, next) => {
       user.profile.name.last
     );
 
-    Avatars.remove({ "meta.userId": user._id });
-
-    fs.stat(req.file.path, (_statError, _statData) => {
+    fs.stat(file.path, (_statError, _statData) => {
       const _addFileMeta = {
-        fileName: req.file.originalname,
-        type: req.file.mimetype,
-        size: req.file.size,
+        fileName: file.originalname,
+        type: file.mimetype,
+        size: file.size,
         meta: {
+          uploadFolder: "react-native-uploads",
           userId: user._id
         }
       };
 
-      fs.readFile(req.file.path, (_readError, _readData) => {
+      fs.readFile(file.path, (_readError, _readData) => {
         if (_readError) {
           console.log(_readError);
         } else {
-          Avatars.write(
+          Files.write(
             _readData,
             _addFileMeta,
             (_uploadError, _uploadData) => {
@@ -62,13 +61,14 @@ Picker.route("/api/v1/uploads", (params, req, res, next) => {
                 console.log(_uploadError);
               } else {
                 console.log("upload data=", _uploadData);
-                fs.unlink(req.file.path, error => {
+                fs.unlink(file.path, error => {
                   if (error) {
                     console.log(error);
                   }
-                }); // remove temp upload
+                });
               }
-            }
+            },
+            true
           );
         }
       });

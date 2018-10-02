@@ -1,32 +1,43 @@
 import React, { Component } from 'react';
-import Meteor from 'react-native-meteor';
+import PropTypes from 'prop-types';
+import Meteor, { withTracker } from 'react-native-meteor';
 import { ScreenOrientation } from 'expo';
 import { View, Image, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import {
-  DocumentPicker,
-  ImagePicker,
-  Camera,
-  Permissions,
-} from 'expo';
+import { DocumentPicker, ImagePicker, Camera, Permissions } from 'expo';
 import * as mime from 'react-native-mime-types';
+import { create } from 'apisauce';
 
-import CustomButton from './CustomButton';
+import config from './config/config';
+import CustomButton from './components/CustomButton';
+import Login from './screens/Login';
+import uploadPOST from './helpers/uploads';
 
 ScreenOrientation.allow(ScreenOrientation.Orientation.PORTRAIT);
 
-Meteor.connect('ws://10.0.0.2:3000/websocket');
+Meteor.connect(
+  process.env.NODE_ENV !== 'development'
+    ? config.prodServerUrl
+    : config.devServerUrl,
+);
 
 class App extends Component {
   constructor(props) {
     super(props);
 
     this.state = {
+      progress: 0,
       loading: false,
       data: null,
       canSend: false,
       hasCameraPermission: null,
-      cammeraViewportDimmensions: {},
+      cameraViewportDimensions: {},
+      authToken: null,
     };
+
+    this.baseURL =
+      process.env.NODE_ENV !== 'development'
+        ? config.prodServerBaseURL
+        : config.devServerBaseURL;
   }
 
   componentDidMount() {
@@ -39,40 +50,138 @@ class App extends Component {
       });
   }
 
-  handleSendFileToMeteor = () => {
+  componentWillReceiveProps(nextProps) {
+    if (Meteor.userId() && nextProps.authToken !== Meteor.getAuthToken()) {
+      this.setState({ authToken: Meteor.getAuthToken() });
+    }
+  }
+
+  sendThroughMethod = () => {
     const { data } = this.state;
 
     this.setState({ loading: true });
 
     if (!data) {
       alert('Nothing to send');
+      this.resetSendSatate();
       return;
     }
 
-    if (data) {
-      console.log('[handleSendFileToMeteor] data to upload', data);
+    Meteor.call(
+      'files.insert',
+      {
+        // If data doesn't have name property, then is an image, grabbed or taken
+        fileName: data.name
+          ? data.name
+          : `image.${mime.extension(
+              data.base64.match(/[^:]\w+\/[\w-+\d.]+(?=;|,)/)[0],
+            )}`,
+        base64DataURI: data.base64,
+        userId: Meteor.userId(),
+      },
+      error => {
+        if (error) {
+          console.log(error);
+        }
+      },
+    );
 
-      Meteor.call(
-        'files.insert',
-        {
-          // If data doesn't have name property, then is an image, grabbed or taken
-          fileName: data.name
-            ? data.name
-            : `image.${mime.extension(
-                data.base64.match(/[^:]\w+\/[\w-+\d.]+(?=;|,)/)[0],
-              )}`,
-          base64DataURI: data.base64,
-          userId: Meteor.userId(),
+    this.resetSendSatate();
+  };
+
+  sendThroughPOST = () => {
+    const { data, authToken } = this.state;
+
+    this.setState({ loading: true });
+
+    if (!data) {
+      alert('Nothing to send');
+      this.resetSendSatate();
+      return;
+    }
+
+    const fileExtension = data.uri.match(/[0-9a-z]+$/i)[0];
+    const formData = new FormData();
+
+    formData.append('authToken', authToken);
+    formData.append('file', {
+      // If data doesn't have name property, then is an image, grabbed or taken
+      name: data.name ? data.name : `image.${fileExtension}`,
+      uri: data.uri,
+      type: mime.lookup(fileExtension),
+    });
+
+    uploadPOST(`${this.baseURL}/api/v1/uploads`, {
+      method: 'post',
+      body: formData,
+      onProgress: event => {
+        const progress = event.loaded / event.total;
+
+        console.log(progress);
+
+        this.setState({
+          progress: progress,
+        });
+      },
+    }).then(
+      res => {
+        console.log(res);
+        this.resetSendSatate();
+      },
+      err => {
+        console.log(err);
+        this.resetSendSatate();
+      },
+    );
+  };
+
+  sendThroughApisaucePOST = () => {
+    const { data, authToken } = this.state;
+
+    this.setState({ loading: true });
+
+    if (!data) {
+      alert('Nothing to send');
+      this.resetSendSatate();
+      return;
+    }
+
+    const fileExtension = data.uri.match(/[0-9a-z]+$/i)[0];
+    const formData = new FormData();
+    const api = create({
+      baseURL: this.baseURL,
+    });
+
+    formData.append('authToken', authToken);
+    formData.append('file', {
+      // If data doesn't have name property, then is an image, grabbed or taken
+      name: data.name ? data.name : `image.${fileExtension}`,
+      uri: data.uri,
+      type: mime.lookup(fileExtension),
+    });
+
+    api
+      .post('/api/v1/uploads', formData, {
+        onUploadProgress: event => {
+          const progress = event.loaded / event.total;
+
+          console.log(progress);
+
+          this.setState({
+            progress,
+          });
         },
-        error => {
-          if (error) {
-            console.log(error);
-          }
-
-          this.resetSatate();
+      })
+      .then(
+        res => {
+          console.log(res);
+          this.resetSendSatate();
+        },
+        err => {
+          console.log(err);
+          this.resetSendSatate();
         },
       );
-    }
   };
 
   readUriToBase64 = async file => {
@@ -84,9 +193,11 @@ class App extends Component {
         const reader = new FileReader();
 
         reader.readAsDataURL(blob);
-        reader.onloadend = () => {
+        // reader.readAsBinaryString(blob); // Not Implemented in RN
+        // reader.readAsArrayBuffer(blob);  // Not Implemented in RN
+        reader.onload = () => {
           this.setState({
-            data: { ...file, base64: reader.result },
+            data: { ...file, data: reader.result },
             canSend: true,
             loading: false,
           });
@@ -96,18 +207,18 @@ class App extends Component {
   };
 
   getCameraViewport = () => {
-    const { hasCameraPermission } = this.state;
+    const { hasCameraPermission, loading, progress, canSend } = this.state;
+    let cameraInner = null;
 
     if (hasCameraPermission === null) {
-      return (
-        <View style={styles.cameraViewport}>
-          <Text>No puedo acceder a la cámara!</Text>
-        </View>
-      );
+      cameraInner = <Text>No puedo acceder a la cámara!</Text>;
     } else if (hasCameraPermission === false) {
-      return (
-        <View style={styles.cameraViewport}>
-          <Text>No tengo permiso de acceder a tu cámara!</Text>
+      cameraInner = <Text>No tengo permiso de acceder a tu cámara!</Text>;
+    } else if (loading && canSend) {
+      cameraInner = (
+        <View style={styles.progressContainer}>
+          <ActivityIndicator size="large" />
+          <Text>{parseFloat(progress * 100).toFixed(2) + '%'}</Text>
         </View>
       );
     }
@@ -117,11 +228,11 @@ class App extends Component {
         style={styles.cameraViewport}
         onLayout={event => {
           this.setState({
-            cammeraViewportDimmensions: event.nativeEvent.layout,
+            cameraViewportDimensions: event.nativeEvent.layout,
           });
         }}
       >
-        {this.getCamera()}
+        {cameraInner ? cameraInner : this.getCamera()}
       </View>
     );
   };
@@ -131,17 +242,16 @@ class App extends Component {
 
     if (loading) {
       return (
-        <ActivityIndicator
-          size="large"
-          color={styles.$activityIndicatorColor}
-        />
+        <View>
+          <ActivityIndicator size="large" />
+        </View>
       );
     } else if (data && data.width && data.height) {
       return (
         <Image
           resizeMode="contain"
-          width={this.state.cammeraViewportDimmensions.width}
-          height={this.state.cammeraViewportDimmensions.height}
+          width={this.state.cameraViewportDimensions.width}
+          height={this.state.cameraViewportDimensions.height}
           source={{ uri: data.uri }}
           style={styles.cameraContainer}
         />
@@ -161,7 +271,7 @@ class App extends Component {
     }
   };
 
-  resetSatate = () => {
+  resetSendSatate = () => {
     this.setState({
       data: null,
       canSend: false,
@@ -209,7 +319,43 @@ class App extends Component {
     }
   };
 
+  handleLogin = (email, password) => {
+    if (email.length === 0) {
+      alert('Need email to login!');
+    }
+
+    if (password.length === 0) {
+      alert('Need password to login!');
+    }
+
+    this.setState({ loading: true });
+    return Meteor.loginWithPassword(email, password, error => {
+      this.setState({ loading: false });
+      if (error) {
+        alert(`Error de login: ${error.message}`);
+      }
+    });
+  };
+
+  handleLogout = () => {
+    Meteor.logout(error => {
+      if (error) {
+        alert(`Error de logout: ${error.message}`);
+      }
+
+      this.setState({ authToken: null });
+    });
+  };
+
   render() {
+    const { loggingIn, authenticated } = this.props;
+
+    if (loggingIn || !authenticated) {
+      return (
+        <Login handleLogin={this.handleLogin} loading={this.state.loading} />
+      );
+    }
+
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -234,14 +380,39 @@ class App extends Component {
             onPress={this.pickDocument}
             disabled={this.state.canSend}
           />
+
+          <CustomButton text="Reset" onPress={this.resetSendSatate} />
         </View>
 
         <View style={styles.buttons}>
-          <CustomButton text="Reset" onPress={this.resetSatate} />
           <CustomButton
-            text="Send to meteor"
-            onPress={this.handleSendFileToMeteor}
+            text="Send through Method"
+            onPress={this.sendThroughMethod}
             disabled={!this.state.canSend}
+          />
+        </View>
+
+        <View style={styles.buttons}>
+          <CustomButton
+            text="Send through POST"
+            onPress={this.sendThroughPOST}
+            disabled={!this.state.canSend}
+          />
+        </View>
+
+        <View style={styles.buttons}>
+          <CustomButton
+            text="Send through Apisauce POST"
+            onPress={this.sendThroughApisaucePOST}
+            disabled={!this.state.canSend}
+          />
+        </View>
+
+        <View style={styles.buttons}>
+          <CustomButton
+            text="Logout"
+            onPress={this.handleLogout}
+            disabled={Meteor.userId() === ''}
           />
         </View>
       </View>
@@ -274,6 +445,11 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     justifyContent: 'center',
   },
+  progressContainer: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   cameraContainer: {
     flex: 1,
   },
@@ -285,4 +461,16 @@ const styles = StyleSheet.create({
   },
 });
 
-export default App;
+App.propTypes = {
+  loggingIn: PropTypes.bool,
+  authenticated: PropTypes.bool,
+};
+
+export default withTracker(() => {
+  const loggingIn = Meteor.loggingIn();
+
+  return {
+    loggingIn,
+    authenticated: !loggingIn && !!Meteor.userId(),
+  };
+})(App);
