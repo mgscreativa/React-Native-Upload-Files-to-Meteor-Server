@@ -4,7 +4,7 @@ import Meteor, { withTracker } from 'react-native-meteor';
 import { ScreenOrientation } from 'expo';
 import { View, Image, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { DocumentPicker, ImagePicker, Camera, Permissions } from 'expo';
-import * as mime from 'react-native-mime-types';
+import mime from 'react-native-mime-types';
 import { create } from 'apisauce';
 
 import config from './config/config';
