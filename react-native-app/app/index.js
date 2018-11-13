@@ -3,7 +3,13 @@ import PropTypes from 'prop-types';
 import Meteor, { withTracker } from 'react-native-meteor';
 import { ScreenOrientation } from 'expo';
 import { View, Image, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { DocumentPicker, ImagePicker, Camera, Permissions } from 'expo';
+import {
+  DocumentPicker,
+  ImagePicker,
+  Camera,
+  Permissions,
+  FileSystem,
+} from 'expo';
 import mime from 'react-native-mime-types';
 import { create } from 'apisauce';
 
@@ -12,7 +18,7 @@ import CustomButton from './components/CustomButton';
 import Login from './screens/Login';
 import uploadPOST from './helpers/uploads';
 
-ScreenOrientation.allow(ScreenOrientation.Orientation.PORTRAIT);
+ScreenOrientation.allowAsync(ScreenOrientation.Orientation.PORTRAIT);
 
 Meteor.connect(
   process.env.NODE_ENV !== 'development'
@@ -67,21 +73,23 @@ class App extends Component {
       return;
     }
 
+    const fileExtension = data.uri.match(/[0-9a-z]+$/i)[0];
+
     Meteor.call(
       'files.insert',
       {
         // If data doesn't have name property, then is an image, grabbed or taken
-        fileName: data.name
-          ? data.name
-          : `image.${mime.extension(
-              data.base64.match(/[^:]\w+\/[\w-+\d.]+(?=;|,)/)[0],
-            )}`,
-        base64DataURI: data.base64,
+        name: data.name ? data.name : `image.${fileExtension}`,
+        type: mime.lookup(fileExtension),
+        data: data.base64,
+        isBase64: true,
         userId: Meteor.userId(),
       },
       error => {
         if (error) {
           console.log(error);
+        } else {
+          alert('File uploaded');
         }
       },
     );
@@ -126,6 +134,7 @@ class App extends Component {
     }).then(
       res => {
         console.log(res);
+        alert('File uploaded');
         this.resetSendSatate();
       },
       err => {
@@ -175,6 +184,7 @@ class App extends Component {
       .then(
         res => {
           console.log(res);
+          alert('File uploaded');
           this.resetSendSatate();
         },
         err => {
@@ -187,23 +197,23 @@ class App extends Component {
   readUriToBase64 = async file => {
     this.setState({ loading: true });
 
-    await fetch(file.uri)
-      .then(response => response.blob())
-      .then(blob => {
-        const reader = new FileReader();
+    try {
+      if ('undefined' === typeof file['base64']) {
+        const data = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingTypes.Base64,
+        });
 
-        reader.readAsDataURL(blob);
-        // reader.readAsBinaryString(blob); // Not Implemented in RN
-        // reader.readAsArrayBuffer(blob);  // Not Implemented in RN
-        reader.onload = () => {
-          this.setState({
-            data: { ...file, data: reader.result },
-            canSend: true,
-            loading: false,
-          });
-        };
-      })
-      .catch(error => console.error(error));
+        file.base64 = data;
+      }
+
+      this.setState({
+        data: { ...file },
+        canSend: true,
+        loading: false,
+      });
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   getCameraViewport = () => {

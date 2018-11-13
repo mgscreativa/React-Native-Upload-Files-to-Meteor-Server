@@ -8,21 +8,21 @@ import Files from "./Files";
 export const insertFile = new ValidatedMethod({
   name: "files.insert",
   validate: new SimpleSchema({
-    fileName: { type: String },
-    base64DataURI: { type: String, optional: true },
-    buffer: { type: Object, optional: true },
+    name: { type: String },
+    data: { type: String },
+    type: { type: String },
+    isBase64: { type: Boolean },
     userId: { type: String, optional: true }
   }).validator(),
   run(file) {
     try {
-      const { fileName, base64DataURI, userId } = file;
+      const { name, data, type, isBase64, userId } = file;
 
       if (userId && this.userId && userId !== this.userId) {
         throw "[files.insert] Can't upload, file tampering detected";
       }
 
-      const fileMime = base64DataURI.match(/[^:]\w+\/[\w-+\d.]+(?=;|,)/)[0];
-      const fileExtension = mime.extension(fileMime);
+      const fileExtension = mime.extension(type);
 
       if (
         !RegExp(Meteor.settings.public.allowedUploadFormats, "i").test(
@@ -40,22 +40,17 @@ export const insertFile = new ValidatedMethod({
       });
 
       // Get result synchronously to be able to use it (for instance) in another method call IE: Update user avatar image
-      const result = writeFile(
-        Buffer.from(
-          base64DataURI.replace(/^data:image\/\w+;base64,/, ""),
-          "base64"
-        ),
-        {
-          fileName: fileName,
-          type: fileMime,
-          meta: {
-            uploadFolder: "react-native-uploads",
-            shouldResize: false,
-            userId
-          },
+      const buffer = isBase64 ? Buffer.from(data, "base64") : data;
+      const result = writeFile(buffer, {
+        fileName: name,
+        type,
+        meta: {
+          uploadFolder: "react-native-uploads",
+          shouldResize: false,
           userId
-        }
-      );
+        },
+        userId
+      });
 
       if (result && result._id) {
         console.log("[files.insert] File uploaded");

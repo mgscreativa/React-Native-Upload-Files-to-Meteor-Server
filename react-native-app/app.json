@@ -4,7 +4,7 @@
     "description": "",
     "slug": "rn-upload-to-meteor",
     "privacy": "public",
-    "sdkVersion": "30.0.0",
+    "sdkVersion": "31.0.0",
     "platforms": ["ios", "android"],
     "version": "0.1.0",
     "orientation": "portrait",
@@ -24,6 +24,6 @@
       "icon": "./app/assets/app-icons/app-icon.png",
       "supportsTablet": false
     },
-    "assetBundlePatterns": ["app/assets/**"]
+    "assetBundlePatterns": ["app/assets/**/*"]
   }
 }

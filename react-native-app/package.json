@@ -8,26 +8,22 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "eject": "expo eject",
-    "test": "node node_modules/jest/bin/jest.js",
-    "test:coverage": "node node_modules/jest/bin/jest.js --coverage && firefox coverage/lcov-report/index.html"
+    "test": "node node_modules/jest/bin/jest.js"
   },
-  "devDependencies": {
-    "jest-expo": "^30.0.0"
+  "jest": {
+    "preset": "jest-expo"
   },
   "dependencies": {
     "apisauce": "^0.16.0",
-    "expo": "^30.0.0",
+    "expo": "^31.0.2",
     "prop-types": "^15.6.2",
-    "react": "16.3.1",
-    "react-native": "https://github.com/expo/react-native/archive/sdk-30.0.0.tar.gz",
+    "react": "16.5.0",
+    "react-native": "https://github.com/expo/react-native/archive/sdk-31.0.0.tar.gz",
     "react-native-meteor": "^1.4.0",
     "react-native-mime-types": "^2.2.1"
   },
-  "jest": {
-    "preset": "jest-expo",
-    "collectCoverageFrom": [
-      "app/*.js",
-      "app/**/*.js"
-    ]
+  "devDependencies": {
+    "babel-preset-expo": "^5.0.0",
+    "jest-expo": "^31.0.0"
   }
 }
